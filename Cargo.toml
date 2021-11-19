@@ -5,6 +5,7 @@ authors = ["Seltiix <seltiix@outlook.com>"]
 edition = "2018"
 description = "A library for interacting with a BlinkStick device"
 license = "MIT"
+repository = "https://github.com/Seltiix/blinkstick-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
