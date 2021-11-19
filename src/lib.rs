@@ -169,7 +169,8 @@ impl BlinkStick {
     /// * `r` - The red channel value (0-255)
     /// * `g` - The green channel value (0-255)
     /// * `b` - The blue channel value (0-255)
-    /// # The call to `blink_unified_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
+    /// # Panics
+    /// The call to `blink_unified_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
     /// # Examples
     /// Makes the 1st, 3rd, 5th led blink 2 times, once every 200 miliseconds, with a yellow glow
     /// ```no_run
