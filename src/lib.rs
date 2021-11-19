@@ -69,7 +69,7 @@ impl BlinkStick {
     /// # Examples
     /// Sets the color of the 0th led to red
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs_rs::BlinkStick;
     /// let blinkstick = BlinkStick::new();
     /// 
     /// blinkstick.set_color(0, 50, 0, 0);
@@ -91,7 +91,7 @@ impl BlinkStick {
     /// # Examples
     /// Sets the color of 0th, 2nd, 4th and 6th led to green.
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.set_unified_color(&vec![0, 2, 4, 6], 0, 50, 0);
@@ -125,7 +125,7 @@ impl BlinkStick {
     /// # Examples
     /// Turns every led blue
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.set_all_colors(0, 0, 50);
@@ -147,7 +147,7 @@ impl BlinkStick {
     /// # Examples
     /// Makes the 0th led blink 5 times, once every second, with a purple glow
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.blink_color(0, std::time::Duration::from_secs(1), 5, 25, 0, 25);
@@ -173,7 +173,7 @@ impl BlinkStick {
     /// # Examples
     /// Makes the 1st, 3rd, 5th led blink 2 times, once every 200 miliseconds, with a yellow glow
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.blink_unified_color(&vec![1, 3, 5], std::time::Duration::from_millis(200), 2, 50, 50, 0);
@@ -206,7 +206,7 @@ impl BlinkStick {
     /// # Examples
     /// Makes the 2nd led, pulse from an off state, to a blue glow, and then return back again to the off state with a two second animation time
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.pulse_color(2, std::time::Duration::from_secs(2), 20, 0, 0, 155);
@@ -236,7 +236,7 @@ impl BlinkStick {
     /// # Examples
     /// Makes the 1st led transform from a red color into a green color over a period of five seconds, with 50 color updates.
     /// ```no_run
-    /// use blinkstick::BlinkStick;
+    /// use blinkstick_rs::BlinkStick;
     /// 
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.set_color(1, 50, 0, 0);
