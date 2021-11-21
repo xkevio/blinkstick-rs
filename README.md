@@ -3,60 +3,58 @@
 blinkstick-rs provides an interface to control any [BlinkStick device](https://www.blinkstick.com/) using Rust.
 
 # Examples
+:exclamation: For the non-published updates, please refer to function documentation for the latest examples.
 
-Sets the color of the 0th led to red
+Sets the color of a single led to red
 ```rust
-use blinkstick_rs::BlinkStick;
+use blinkstick_rs::{BlinkStick, Color};
 
-let blinkstick = BlinkStick::new(); 
-blinkstick.set_color(0, 50, 0, 0);
+let blinkstick = BlinkStick::new();
+
+blinkstick.set_led_color(0, Color {r: 50, g: 0, b: 0});
 ```
 
-Sets the color of 0th, 2nd, 4th and 6th led to green.
+Sets a random color to every led on the BlinkStick device
 ```rust
-use blinkstick_rs::BlinkStick;
+use blinkstick_rs::{BlinkStick, Color};
 
 let blinkstick = BlinkStick::new();
-blinkstick.set_unified_color(&vec![0, 2, 4, 6], 0, 50, 0);
- ```
 
-Turns every led blue
-```rust
-use blinkstick_rs::BlinkStick;
- 
-let blinkstick = BlinkStick::new();
-blinkstick.set_all_colors(0, 0, 50);
-```
-
-Makes the 0th led blink 5 times, once every second, with a purple glow
-```rust
-use blinkstick_rs::BlinkStick;
-
-let blinkstick = BlinkStick::new();
-blinkstick.blink_color(0, std::time::Duration::from_secs(1), 5, 25, 0, 25);
+let mut colors: Vec<Color> = blinkstick.get_color_vec();
+for led in 0..blinkstick.max_leds as usize {
+   colors[led] = BlinkStick::get_random_color();
+}
+blinkstick.set_all_leds_colors(&colors);
 ```
 
 Makes the 1st, 3rd, 5th led blink 2 times, once every 200 miliseconds, with a yellow glow
 ```rust
-use blinkstick_rs::BlinkStick;
+use blinkstick_rs::{BlinkStick, Color};
 
 let blinkstick = BlinkStick::new();
-blinkstick.blink_unified_color(&vec![1, 3, 5], std::time::Duration::from_millis(200), 2, 50, 50, 0);
+
+blinkstick.blink_multiple_leds_color(&vec![1, 3, 5], std::time::Duration::from_millis(200), 2, Color {r: 50, g: 50, b: 0});
 ```
 
-Makes the 2nd led, pulse from an off state, to a blue glow, and then return back again to the off state with a two second animation time
+Makes every led pulse between beeing turned off and a green color
 ```rust
-use blinkstick_rs::BlinkStick;
- 
+use blinkstick_rs::{BlinkStick, Color};
+
 let blinkstick = BlinkStick::new();
-blinkstick.pulse_color(2, std::time::Duration::from_secs(2), 20, 0, 0, 155);
+
+let color = Color {r: 0, g: 25, b: 0};
+blinkstick.pulse_all_leds_color(std::time::Duration::from_secs(2), 50, Color {r: 0, g: 25, b: 0});
 ```
 
-Makes the 1st led transform from a red color into a green color over a period of five seconds, with 50 color updates.
+Makes the first led transform from a red color into a green color over a period of five seconds, with 50 color updates.
 ```rust
-use blinkstick_rs::BlinkStick;
+use blinkstick_rs::{BlinkStick, Color};
 
 let blinkstick = BlinkStick::new();
-blinkstick.set_color(1, 50, 0, 0);
-blinkstick.transform_color(1, std::time::Duration::from_secs(5), 50, 0, 50, 0);
+
+blinkstick.set_led_color(1, Color {r: 50, g: 0, b: 0});
+blinkstick.transform_led_color(1, std::time::Duration::from_secs(5), 50, Color {r: 0, g: 50, b: 0});
 ```
+
+# Running tests
+Tests are only runnable when a BlinkStick device is plugged in. Furthermore, tests should be run using `cargo test -- --test-threads=1` or `cargo test -- --test-threads=1` or they might fail.
