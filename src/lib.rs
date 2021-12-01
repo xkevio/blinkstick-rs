@@ -1,16 +1,16 @@
 //! This crate provides a rust toolkit for interacting with the BlinkStick device.
 //! The implementation should support all types of BlinkStick devices. It was however
 //! implemented and tested using a BlinkStick Square. If a BlinkStick device acts incorrectly, please contact me.
+//! Requires libusb when using blinkstick-rs on Linux machines, check README for more information.
 
 use rand::Rng;
-#[allow(unused_imports)]
 use std::{thread, time::Duration, time::Instant};
 
 extern crate hidapi;
 
 const VENDOR_ID: u16 = 0x20a0;
 const PRODUCT_ID: u16 = 0x41e5;
-const COM_PAUSE: Duration = Duration::from_millis(10);
+const COM_PAUSE: Duration = Duration::from_millis(2);
 
 const REPORT_ARRAY_BYTES: usize = 100;
 
@@ -20,6 +20,7 @@ pub struct Color {
     pub g: u8,
     pub b: u8,
 }
+const COLOR_OFF: Color = Color { r: 0, g: 0, b: 0 };
 
 pub struct BlinkStick {
     device: hidapi::HidDevice,
@@ -29,7 +30,13 @@ pub struct BlinkStick {
 
 impl Drop for BlinkStick {
     fn drop(&mut self) {
-        self.set_all_leds_color(Color { r: 0, g: 0, b: 0 });
+        self.set_all_leds_color(COLOR_OFF);
+    }
+}
+
+impl Default for BlinkStick {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -57,11 +64,16 @@ impl BlinkStick {
         let max_leds = ((bytes_read - 2) / 3) as u8;
         let report_length = ((max_leds * 3) + 2).into();
 
-        BlinkStick {
+        let blinkstick = BlinkStick {
             device,
             max_leds,
             report_length,
-        }
+        };
+
+        // If the light is already on, we want to reset it before giving the user a way to interact with it.
+        blinkstick.set_all_leds_color(COLOR_OFF);
+
+        blinkstick
     }
 
     /// Generates a random color
@@ -114,7 +126,7 @@ impl BlinkStick {
     /// let blinkstick = BlinkStick::new();
     ///
     /// blinkstick.set_led_color(0, Color {r: 50, g: 0, b: 0});
-    /// 
+    ///
     /// assert_eq!(blinkstick.get_led_color(0), Color {r: 50, g: 0, b: 0});
     /// ```
     pub fn set_led_color(&self, led: u8, color: Color) {
@@ -142,7 +154,7 @@ impl BlinkStick {
     /// let blinkstick = BlinkStick::new();
     /// blinkstick.set_multiple_leds_color(&vec![0, 2, 4, 6], Color {r: 0, g: 50, b: 0});
     /// ```
-    pub fn set_multiple_leds_color(&self, leds: &Vec<u8>, color: Color) {
+    pub fn set_multiple_leds_color(&self, leds: &[u8], color: Color) {
         let mut data_vec: [u8; REPORT_ARRAY_BYTES] = [0; REPORT_ARRAY_BYTES];
         data_vec[0] = 0x6;
 
@@ -158,7 +170,7 @@ impl BlinkStick {
             }
 
             // Why whould G,R,B ever be a good idea?
-            data_vec[led_offset + 0] = color.g;
+            data_vec[led_offset] = color.g;
             data_vec[led_offset + 1] = color.r;
             data_vec[led_offset + 2] = color.b;
         }
@@ -180,7 +192,8 @@ impl BlinkStick {
     /// blinkstick.set_all_leds_color(Color {r: 0, g: 0, b: 50});
     /// ```
     pub fn set_all_leds_color(&self, color: Color) {
-        self.set_multiple_leds_color(&(0..self.max_leds).collect(), color)
+        let leds: Vec<u8> = (0..self.max_leds).collect();
+        self.set_multiple_leds_color(&leds, color)
     }
 
     /// Sets a different color for every led available on the BlinkStick device
@@ -206,25 +219,26 @@ impl BlinkStick {
     ///
     /// blinkstick.set_all_leds_colors(&colors);
     /// ```
-    pub fn set_all_leds_colors(&self, colors: &Vec<Color>) {
+    pub fn set_all_leds_colors(&self, colors: &[Color]) {
         let mut data_vec: [u8; REPORT_ARRAY_BYTES] = [0; REPORT_ARRAY_BYTES];
         data_vec[0] = 0x6;
 
-        for led in 0..self.max_leds as usize {
-            let led_offset = (led * 3) + 2;
+        for (led_index, led_color) in colors.iter().enumerate().take(self.max_leds as usize) {
+            //for led in 0..self.max_leds as usize {
+            let led_offset = (led_index * 3) + 2;
 
             if led_offset >= ((self.max_leds * 3) + 2).into() {
                 panic!(
                     "BlinkStick device does not contain led {}. Valid leds are 0-{} (zero-indexed)",
-                    led,
+                    led_index,
                     self.max_leds - 1
                 );
             }
 
             // Why whould G,R,B ever be a good idea?
-            data_vec[led_offset + 0] = colors[led].g;
-            data_vec[led_offset + 1] = colors[led].r;
-            data_vec[led_offset + 2] = colors[led].b;
+            data_vec[led_offset] = led_color.g;
+            data_vec[led_offset + 1] = led_color.r;
+            data_vec[led_offset + 2] = led_color.b;
         }
 
         self.send_feature_to_blinkstick(&data_vec[0..self.report_length]);
@@ -279,15 +293,15 @@ impl BlinkStick {
     /// ```
     pub fn blink_multiple_leds_color(
         &self,
-        leds: &Vec<u8>,
+        leds: &[u8],
         delay: Duration,
         blinks: u32,
         color: Color,
     ) {
         for _ in 0..blinks {
-            self.set_multiple_leds_color(&leds, color);
+            self.set_multiple_leds_color(leds, color);
             std::thread::sleep(delay);
-            self.set_multiple_leds_color(&leds, Color { r: 0, g: 0, b: 0 });
+            self.set_multiple_leds_color(leds, Color { r: 0, g: 0, b: 0 });
             std::thread::sleep(delay);
         }
     }
@@ -308,7 +322,8 @@ impl BlinkStick {
     /// blinkstick.blink_all_leds_color(std::time::Duration::from_millis(200), 2, Color {r: 50, g: 50, b: 0});
     /// ```
     pub fn blink_all_leds_color(&self, delay: Duration, blinks: u32, color: Color) {
-        self.blink_multiple_leds_color(&(0..self.max_leds).collect(), delay, blinks, color)
+        let leds: Vec<u8> = (0..self.max_leds).collect();
+        self.blink_multiple_leds_color(&leds, delay, blinks, color)
     }
 
     /// Makes the specified led pulse from its current color to a specified color and back again
@@ -376,7 +391,7 @@ impl BlinkStick {
     /// ```
     pub fn pulse_multiple_leds_color(
         &self,
-        leds: &Vec<u8>,
+        leds: &[u8],
         duration: Duration,
         steps: u64,
         color: Color,
@@ -411,7 +426,9 @@ impl BlinkStick {
     /// assert_eq!(blinkstick.get_all_led_colors(), vec![Color {r: 0, g: 0, b: 0}; blinkstick.max_leds as usize]);
     /// ```
     pub fn pulse_all_leds_color(&self, duration: Duration, steps: u64, color: Color) {
-        self.pulse_multiple_leds_color(&(0..self.max_leds).collect(), duration, steps, color)
+        let leds: Vec<u8> = (0..self.max_leds).collect();
+
+        self.pulse_multiple_leds_color(&leds, duration, steps, color)
     }
 
     /// Makes the specified led shift into a different color
@@ -493,7 +510,7 @@ impl BlinkStick {
     /// blinkstick.set_all_leds_colors(&colors);
     /// blinkstick.transform_all_leds_colors(std::time::Duration::from_secs(2), 50, &new_colors);
     /// ```
-    pub fn transform_all_leds_colors(&self, duration: Duration, steps: u64, colors: &Vec<Color>) {
+    pub fn transform_all_leds_colors(&self, duration: Duration, steps: u64, colors: &[Color]) {
         let interval = duration.as_millis() as u64 / steps;
 
         for step in 0..steps {
@@ -549,12 +566,12 @@ impl BlinkStick {
     ///
     /// blinkstick.set_all_leds_colors(&colors);
     ///
-    /// let led_vec = (0..blinkstick.max_leds).collect();
+    /// let led_vec: Vec<u8> = (0..blinkstick.max_leds).collect();
     /// blinkstick.transform_multiple_leds_color(&led_vec, std::time::Duration::from_secs(2), 50, Color {r: 55, g: 0, b: 55});
     /// ```
     pub fn transform_multiple_leds_color(
         &self,
-        leds: &Vec<u8>,
+        leds: &[u8],
         duration: Duration,
         steps: u64,
         color: Color,
@@ -682,7 +699,6 @@ impl BlinkStick {
             .expect("Could not set the color of Blinkstick led");
 
         thread::sleep(COM_PAUSE);
-        
     }
 
     fn get_feature_from_blinkstick(&self, id: u8) -> [u8; REPORT_ARRAY_BYTES] {
@@ -754,7 +770,7 @@ mod blinkstick {
     fn flash_multiple_leds_out_of_bounds() {
         let blinkstick = BlinkStick::new();
 
-        blinkstick.set_multiple_leds_color(&vec![blinkstick.max_leds], Color { r: 5, g: 5, b: 5 });
+        blinkstick.set_multiple_leds_color(&[blinkstick.max_leds], Color { r: 5, g: 5, b: 5 });
     }
 
     #[test]
@@ -807,7 +823,7 @@ mod blinkstick {
         let blinkstick = BlinkStick::new();
 
         blinkstick.blink_multiple_leds_color(
-            &vec![blinkstick.max_leds],
+            &[blinkstick.max_leds],
             std::time::Duration::from_millis(200),
             5,
             Color { r: 5, g: 10, b: 10 },
@@ -852,7 +868,7 @@ mod blinkstick {
         assert_eq!(blinkstick.get_led_color(5), color_two);
 
         blinkstick.transform_multiple_leds_color(
-            &vec![3, 5],
+            &[3, 5],
             std::time::Duration::from_secs(4),
             25,
             target_color,
