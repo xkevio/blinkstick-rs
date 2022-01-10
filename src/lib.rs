@@ -47,11 +47,11 @@ pub struct BlinkStick {
     report_length: usize,
 }
 
-// impl Drop for BlinkStick {
-//     fn drop(&mut self) {
-//         self.set_all_leds_color(COLOR_OFF).unwrap()
-//     }
-// }
+impl Drop for BlinkStick {
+    fn drop(&mut self) {
+        self.set_all_leds_color(COLOR_OFF).unwrap()
+    }
+}
 
 impl Default for BlinkStick {
     fn default() -> Self {
@@ -378,10 +378,7 @@ impl BlinkStick {
     ///
     /// # Panics
     /// The call to `pulse_led_color` will panic if the specified `led` is out of bounds for the connected BlinkStick device.
-    ///
-    /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
-    /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
-    /// panics if this threshold is overstepped. A rule of thumb is for each second of animation, 50 steps is a softmax.
+    /// The call to `pulse_led_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// # Example
     /// Makes the 2nd led, pulse from an off state, to a blue glow, and then return back again to the off state with a two second animation time
@@ -409,10 +406,7 @@ impl BlinkStick {
     ///
     /// # Panics
     /// The call to `pulse_multiple_leds_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
-    ///
-    /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
-    /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
-    /// panics if this threshold is overstepped. A rule of thumb is for each second of animation, 100 steps is a softmax.
+    /// The call to `pulse_multiple_leds_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// # Example
     /// Gives the zeroth and fourth led a random color, and makes them pulse to a blue color
@@ -454,9 +448,7 @@ impl BlinkStick {
     /// * `color` - A struct holding color values for R,G and B channel respectively
     ///
     /// # Panics
-    /// By choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
-    /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
-    /// panics if this threshold is overstepped. A rule of thumb is for each second of animation, 100 steps is a softmax.
+    /// The call to `pulse_all_leds_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// # Example
     /// Makes every led pulse between being turned off and a green color
@@ -490,6 +482,7 @@ impl BlinkStick {
     ///
     /// # Panics
     /// The call to `transform_led_color` will panic if the specified `led` is out of bounds for the connected BlinkStick device.
+    /// The call to `transform_led_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
     /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
@@ -521,7 +514,10 @@ impl BlinkStick {
             self.set_led_color(led, color)?;
             let elapsed = start.elapsed();
 
-            std::thread::sleep(interval.sub(elapsed));
+            let subtracted_duration = interval.saturating_sub(elapsed);
+            if subtracted_duration != Duration::ZERO {
+                std::thread::sleep(subtracted_duration);
+            }
         }
 
         Ok(())
@@ -535,7 +531,7 @@ impl BlinkStick {
     /// * `colors` - A vector of `Color` with equal length to the number of leds available on the device.
     ///
     /// # Panics
-    /// The call to `blink_multiple_leds_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
+    /// The call to `transform_all_leds_colors` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
     /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
@@ -582,9 +578,8 @@ impl BlinkStick {
     /// * `steps` - The number of times the color value is update during the transformation
     /// * `color` - A struct holding color values for R,G and B channel respectively
     ///
-    /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
-    /// meaning that the animation would have taken longer then the specified duration to finish. A rule of thumb is for each second of animation, 100 steps is a softmax.
-    /// However, using more then 50-75 steps is visually redundant.
+    /// # Panics
+    /// The call to `transform_all_leds_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// # Example
     /// Transforms all leds from "off" to a blue `Color`.
@@ -623,7 +618,10 @@ impl BlinkStick {
                 .collect();
             self.set_all_leds_colors(&test)?;
 
-            std::thread::sleep(interval.sub(start.elapsed()));
+            let subtracted_duration = interval.saturating_sub(start.elapsed());
+            if subtracted_duration != Duration::ZERO {
+                std::thread::sleep(subtracted_duration);
+            }
         }
 
         Ok(())
@@ -638,11 +636,8 @@ impl BlinkStick {
     /// * `color` - A struct holding color values for R,G and B channel respectively
     ///
     /// # Panics
-    /// The call to `blink_multiple_leds_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
-    ///
-    /// Additionally, by choosing a very high `step` count, it makes the internal animation interval shorter then the function execution
-    /// meaning that the animation would have taken longer then the specified duration to finish. Therefore, the function
-    /// panics if this threshold is overstepped. A rule of thumb is for each second of animation, 100 steps is a softmax.
+    /// The call to `transform_multiple_leds_color` will panic if any of the specified `leds` is out of bounds for the BlinkStick device.
+    /// The call to `transform_multiple_leds_color` will panic if the internal communication time is shorter then `duration`/`steps`.
     ///
     /// # Example
     /// Sets a random color for each available led then transforms it all into a single `Color`.
@@ -690,10 +685,46 @@ impl BlinkStick {
         Ok(())
     }
 
-    /// Gets the color of every single led on the BlinkStick device
+    /// Makes the blinkstick device carousel. A Carousel utilizes all leds to transition between `start_color`, `stop_color` and back to `start_color`
     ///
-    /// # Panics
-    /// If the BlinkStick device data could not be read
+    /// # Arguments
+    /// * `start_color` - The start color to transition from
+    /// * `stop_color` - The target color to transition to
+    ///
+    /// # Example
+    ///
+    /// Carousels the BlinkStick device Blue -> Green -> Blue 10 times
+    /// ```
+    /// use blinkstick_rs::{BlinkStick, Color};
+    /// let blinkstick = BlinkStick::default();
+    /// let color_one = Color { r: 0, g: 0, b: 50 };
+    /// let color_two = Color {r: 0, g: 50, b: 0};
+    /// for _ in 0..10 {
+    ///     blinkstick.carousel(color_one, color_two, std::time::Duration::from_millis(20)).unwrap();
+    /// }
+    /// ```
+    pub fn carousel(&self, start_color: Color, target_color: Color, delay: Duration) -> Result<(), FeatureError> {
+        let mut carousel_colors = calculate_gradients(start_color, target_color, self.max_leds as u16);
+
+        self.color_lap(&carousel_colors, &delay)?;
+        carousel_colors.reverse();
+        self.color_lap(&carousel_colors, &delay)
+    }
+
+    /// Helper function for carousel
+    fn color_lap(&self, lap_colors: &[Color], delay: &Duration) -> Result<(), FeatureError> {
+        self.set_led_color(0_u8, lap_colors[0])?;
+        for i in 1..self.max_leds {
+            std::thread::sleep(*delay);
+
+            self.turn_off_led(i - 1)?;
+            self.set_led_color(i, lap_colors[i as usize])?;
+        }
+
+        self.turn_off_led(self.max_leds - 1)
+    }
+
+    /// Gets the color of every single led on the BlinkStick device
     ///
     /// # Example
     /// Gets the color of every single led
@@ -729,9 +760,6 @@ impl BlinkStick {
     }
 
     /// Gets the color of a single led on the BlinkStick device
-    ///
-    /// # Panics
-    /// If the BlinkStick device data could not be read
     ///
     /// # Example
     /// Gets the color of the zeroth led
