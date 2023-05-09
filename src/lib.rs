@@ -3,14 +3,16 @@
 //! implemented and tested using a BlinkStick Square. If a BlinkStick device acts incorrectly, please contact me.
 //! Requires libusb when using blinkstick-rs on Linux machines, check README for more information.
 
-use crate::FeatureErrorType::{Get, Send};
+extern crate rand;
 use rand::Rng;
+
+use crate::FeatureErrorType::{Get, Send};
 use std::error::Error;
 use std::fmt::Formatter;
 use std::ops::{Div, Sub};
 use std::{time::Duration, time::Instant};
 
-extern crate hidapi;
+// extern crate hidapi;
 
 const VENDOR_ID: u16 = 0x20a0;
 const PRODUCT_ID: u16 = 0x41e5;
@@ -53,6 +55,9 @@ pub struct BlinkStick {
     pub max_leds: u8,
     report_length: usize,
 }
+
+unsafe impl std::marker::Send for BlinkStick {}
+unsafe impl std::marker::Sync for BlinkStick {}
 
 impl Drop for BlinkStick {
     fn drop(&mut self) {
