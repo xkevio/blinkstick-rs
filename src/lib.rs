@@ -81,33 +81,33 @@ impl BlinkStick {
     pub fn new() -> Result<BlinkStick, FeatureError> {
         let api = hidapi::HidApi::new().expect("Could not create a hid api");
 
-        let device = api.open(VENDOR_ID, PRODUCT_ID);
+        match api.open(VENDOR_ID, PRODUCT_ID) {
+            Ok(device) => {
+                // Determines the number of leds for a device. The BlinkStick Flex has 32 leds with 3 channels, which is the maximum of any device.
+                // 32 * 3 + 2 = 98 bytes
+                let mut buf: [u8; REPORT_ARRAY_BYTES] = [0; REPORT_ARRAY_BYTES];
+                buf[0] = 0x6;
+                let bytes_read = device.get_feature_report(&mut buf).unwrap();
 
-        let device = match device {
-            Ok(device) => device,
-            Err(error) => panic!("Problem connecting to device: {:?}", error),
-        };
+                // First two bytes are meta information
+                let max_leds = ((bytes_read - 2) / 3) as u8;
+                let report_length = ((max_leds * 3) + 2).into();
 
-        // Determines the number of leds for a device. The BlinkStick Flex has 32 leds with 3 channels, which is the maximum of any device.
-        // 32 * 3 + 2 = 98 bytes
-        let mut buf: [u8; REPORT_ARRAY_BYTES] = [0; REPORT_ARRAY_BYTES];
-        buf[0] = 0x6;
-        let bytes_read = device.get_feature_report(&mut buf).unwrap();
+                let blinkstick = BlinkStick {
+                    device,
+                    max_leds,
+                    report_length,
+                };
 
-        // First two bytes are meta information
-        let max_leds = ((bytes_read - 2) / 3) as u8;
-        let report_length = ((max_leds * 3) + 2).into();
+                // If the light is already on, we want to reset it before giving the user a way to interact with it.
+                blinkstick.set_all_leds_color(COLOR_OFF)?;
 
-        let blinkstick = BlinkStick {
-            device,
-            max_leds,
-            report_length,
-        };
-
-        // If the light is already on, we want to reset it before giving the user a way to interact with it.
-        blinkstick.set_all_leds_color(COLOR_OFF)?;
-
-        Ok(blinkstick)
+                Ok(blinkstick)
+            }
+            Err(_) => Err(FeatureError {
+                kind: FeatureErrorType::Get,
+            }),
+        }
     }
 
     /// Turns off a single led
